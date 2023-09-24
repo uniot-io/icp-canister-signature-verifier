@@ -1,0 +1,4 @@
+src/declarations/
+node_modules/
+.dfx/
+dist/
