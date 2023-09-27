@@ -13,4 +13,10 @@ document.querySelector('#app').innerHTML = `
   </div>
 `
 
+// @dfinity/agent requires this. Can be removed once it's fixed
+window.global = window
+
+// Workaround for setting Buffer at a single and predictable place
+window.Buffer = Buffer
+
 runApp()

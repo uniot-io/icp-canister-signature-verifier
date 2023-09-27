@@ -6,6 +6,8 @@
     "start": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "pebuild": "dfx deploy",
+    "prestart": "dfx deploy",
     "build-wasm": "wasm-pack build ./src/rs --target web"
   },
   "devDependencies": {
@@ -18,8 +20,8 @@
     "@dfinity/candid": "^0.19.2",
     "@dfinity/identity": "^0.19.2",
     "@dfinity/principal": "^0.19.2",
-    "@noble/curves": "^1.2.0",
     "asn1.js": "^5.4.1",
-    "cbor": "^9.0.1"
+    "cbor-web": "^9.0.1",
+    "tweetnacl": "^1.0.3"
   }
 }
