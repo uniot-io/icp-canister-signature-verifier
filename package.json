@@ -20,8 +20,8 @@
     "@dfinity/candid": "^0.19.2",
     "@dfinity/identity": "^0.19.2",
     "@dfinity/principal": "^0.19.2",
+    "@noble/hashes": "^1.3.2",
     "asn1.js": "^5.4.1",
-    "cbor-web": "^9.0.1",
     "tweetnacl": "^1.0.3"
   }
 }

@@ -23,7 +23,7 @@ pub fn verify_canister_sig(
     let root_pk = match parse_threshold_sig_key_from_der(root_pk_der) {
         Ok(pk) => pk,
         Err(e) => {
-            web_sys::console::log_1(&format!("Failed to convert root public key from DER format: {:?}", e).into());
+            web_sys::console::error_1(&format!("Failed to convert root public key from DER format: {:?}", e).into());
             return false;
         }
     };
@@ -32,7 +32,7 @@ pub fn verify_canister_sig(
     let canister_pk = match user_public_key_from_bytes(canister_pk_der) {
         Ok(pk) => pk,
         Err(e) => {
-            web_sys::console::log_1(&format!("Failed to convert canister public key from DER format: {:?}", e).into());
+            web_sys::console::error_1(&format!("Failed to convert canister public key from DER format: {:?}", e).into());
             return false;
         }
     };
@@ -47,7 +47,7 @@ pub fn verify_canister_sig(
     ) {
         Ok(_) => true,
         Err(e) => {
-            web_sys::console::log_1(&format!("Signature verification failed: {:?}", e).into());
+            web_sys::console::error_1(&format!("Signature verification failed: {:?}", e).into());
             false
         }
     }

@@ -1,10 +1,10 @@
 import asn1 from 'asn1.js'
-import * as CBOR from 'cbor-web'
 import * as tweetnacl from 'tweetnacl'
 import { AuthClient } from '@dfinity/auth-client'
-import { requestIdOf, Certificate, HttpAgent } from '@dfinity/agent'
+import { requestIdOf, HttpAgent } from '@dfinity/agent'
 import { Principal } from '@dfinity/principal'
 import wasmInit, { verify_canister_sig } from '@/../rs/pkg/icp_canister_signature_verifier.js'
+import { verifyCanisterSig } from './canister'
 
 // prettier-ignore
 const SPKI = asn1.define('SPKI', function () {
@@ -21,14 +21,16 @@ class SignatureResearch {
   async login () {
     this._client = await AuthClient.create({ keyType: 'Ed25519' })
 
-    await new Promise((resolve) => {
-      this._client.login({
-        identityProvider: import.meta.env.VITE_APP_II_URL,
-        onSuccess: () => {
-          resolve(true)
-        }
+    if (!this._client.isAuthenticated()) {
+      await new Promise((resolve) => {
+        this._client.login({
+          identityProvider: import.meta.env.VITE_APP_II_URL,
+          onSuccess: () => {
+            resolve(true)
+          }
+        })
       })
-    })
+    }
 
     this._identity = this._client.getIdentity()
     this._agent = new HttpAgent({ host: import.meta.env.VITE_APP_IC_AGENT_HOST })
@@ -125,35 +127,22 @@ class VerifierResearch {
   }
 
   verifySession () {
+    const rootPubKeyBytes = new Uint8Array(this._agent.rootKey)
+    const domainSeparator = new TextEncoder().encode('\x1Aic-request-auth-delegation')
+    const challengeBytes = new Uint8Array([
+      ...domainSeparator,
+      ...new Uint8Array(requestIdOf(this._sessionDelegation.delegation))
+    ])
+    const identityPublicKeyBytes = new Uint8Array(this._identityPublicKey)
+    const delegationSignatureBytes = new Uint8Array(this._sessionDelegation.signature)
+
     return {
       rustImpl: async () => {
-        const domainSeparator = new TextEncoder().encode('\x1Aic-request-auth-delegation')
-        const challengeBytes = new Uint8Array([
-          ...domainSeparator,
-          ...new Uint8Array(requestIdOf(this._sessionDelegation.delegation))
-        ])
-        const rootPubKeyBytes = new Uint8Array(this._agent.rootKey)
-        const identityPublicKeyBytes = new Uint8Array(this._identityPublicKey)
-        const delegationSignatureBytes = new Uint8Array(this._sessionDelegation.signature)
-
         await wasmInit()
         return verify_canister_sig(challengeBytes, delegationSignatureBytes, identityPublicKeyBytes, rootPubKeyBytes)
       },
       jsImpl: async () => {
-        const signatureDecoded = CBOR.decode(this._sessionDelegation.signature)
-        const certificate = signatureDecoded.value.certificate
-        const rootKey = new Uint8Array(this._agent.rootKey)
-        const pubKeySpki = SPKI.decode(Buffer.from(this._identityPublicKey), 'der')
-        const rawKey = new Uint8Array(pubKeySpki.subjectPublicKey.data)
-        const canisterId = Principal.fromUint8Array(rawKey.slice(1, 1 + rawKey[0]))
-
-        return Certificate.create({ certificate, rootKey, canisterId })
-          .then(() => true)
-          .catch((err) => {
-            console.log(err)
-            return false
-          })
-        // TODO: lookup path in canister sig tree
+        return verifyCanisterSig(challengeBytes, delegationSignatureBytes, identityPublicKeyBytes, rootPubKeyBytes)
       }
     }
   }
