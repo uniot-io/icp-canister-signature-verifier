@@ -1,4 +1,5 @@
 import '@/style.css'
+import { Buffer } from 'buffer'
 import { runApp } from '@/app.js'
 
 document.querySelector('#app').innerHTML = `

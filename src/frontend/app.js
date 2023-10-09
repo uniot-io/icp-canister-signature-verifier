@@ -1,10 +1,12 @@
 import asn1 from 'asn1.js'
-import * as tweetnacl from 'tweetnacl'
 import { AuthClient } from '@dfinity/auth-client'
 import { requestIdOf, HttpAgent } from '@dfinity/agent'
 import { Principal } from '@dfinity/principal'
 import wasmInit, { verify_canister_sig } from '@/../rs/pkg/icp_canister_signature_verifier.js'
 import { verifyCanisterSig } from './canister'
+import { p256 } from '@noble/curves/p256'
+import { ed25519 } from '@noble/curves/ed25519'
+import { sha256 } from '@noble/hashes/sha256'
 
 // prettier-ignore
 const SPKI = asn1.define('SPKI', function () {
@@ -19,18 +21,20 @@ const SPKI = asn1.define('SPKI', function () {
 
 class SignatureResearch {
   async login () {
+    // this._client = await AuthClient.create()
     this._client = await AuthClient.create({ keyType: 'Ed25519' })
+    // this._client = await AuthClient.create({ keyType: 'ECDSA' })
 
-    if (!this._client.isAuthenticated()) {
-      await new Promise((resolve) => {
-        this._client.login({
-          identityProvider: import.meta.env.VITE_APP_II_URL,
-          onSuccess: () => {
-            resolve(true)
-          }
-        })
+    // if (!this._client.isAuthenticated()) {
+    await new Promise((resolve) => {
+      this._client.login({
+        identityProvider: import.meta.env.VITE_APP_II_URL,
+        onSuccess: () => {
+          resolve(true)
+        }
       })
-    }
+    })
+    // }
 
     this._identity = this._client.getIdentity()
     this._agent = new HttpAgent({ host: import.meta.env.VITE_APP_IC_AGENT_HOST })
@@ -113,11 +117,22 @@ class VerifierResearch {
   async verifyMessageSignature (msg, signature) {
     const pubKeySpki = SPKI.decode(Buffer.from(this._sessionDelegation.delegation.pubkey), 'der')
 
-    return tweetnacl.sign.detached.verify(
-      new TextEncoder().encode(msg),
-      new Uint8Array(signature),
-      new Uint8Array(pubKeySpki.subjectPublicKey.data)
-    )
+    const rawPubKey = new Uint8Array(pubKeySpki.subjectPublicKey.data)
+    const oid = pubKeySpki.algorithm.id.join('.')
+
+    if (oid === '1.3.101.112') {
+      const msgBytes = new TextEncoder().encode(msg)
+      return ed25519.verify(new Uint8Array(signature), msgBytes, rawPubKey)
+    }
+    if (oid === '1.2.840.10045.2.1') {
+      const curve = pubKeySpki.algorithm.parameters.join('.')
+      if (curve === '1.2.840.10045.3.1.7') {
+        const msgHash = sha256.create().update(msg).digest()
+        return p256.verify(new Uint8Array(signature), msgHash, rawPubKey)
+      }
+    }
+
+    return false
   }
 
   checkSessionKeyExpiration (msg) {
